@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zombie Plant Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #3a506b, #1c2a38);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            color: #ecf0f1;
+            overflow: hidden;
+        }
+        .game-container {
+            background-color: #1a252f;
+            border-radius: 15px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            border: 3px solid #4CAF50;
+            max-width: 90%;
+        }
+        h1 {
+            font-family: 'Press Start 2P', cursive;
+            color: #ecf0f1;
+            margin-bottom: 15px;
+            font-size: 2.5em;
+            text-shadow: 4px 4px #000;
+            letter-spacing: 2px;
+        }
+        .game-area {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        canvas {
+    background: url('grass.png');
+    background-size: cover;
+    background-position: center;
+    border: 4px solid #8bc34a;
+    border-radius: 8px;
+    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5);
+    display: block;
+    width: 600px;
+    height: 400px;
+}
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: #2c3e50;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #34495e;
+            min-width: 150px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .info-box {
+            background-color: #34495e;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.9em;
+            color: #ecf0f1;
+            text-align: left;
+            border: 1px solid #4a69bd;
+        }
+        .info-box span {
+            float: right;
+            color: #f1c40f;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            background: linear-gradient(45deg, #4CAF50, #66BB6A);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            font-family: 'Inter', sans-serif;
+        }
+        button:hover {
+            background: linear-gradient(45deg, #43A047, #5cb85c);
+            box-shadow: 0 7px 20px rgba(0, 0, 0, 0.3);
+            transform: translateY(-2px);
+        }
+        button#pauseButton { background: linear-gradient(45deg, #f39c12, #e67e22); }
+        button#resetButton { background: linear-gradient(45deg, #e74c3c, #c0392b); }
+        .message-box {
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            display: none;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.5em;
+            text-align: center;
+            border: 3px solid #e74c3c;
+            box-shadow: 0 0 20px rgba(231, 76, 60, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>ZOMBIE PLANT</h1>
+        <div class="game-area">
+            <canvas id="gameCanvas" width="600" height="400"></canvas>
+            <div class="sidebar">
+                <div class="info-box">Score: <span id="score">0</span></div>
+                <div class="info-box">Level: <span id="level">1</span></div>
+                <div class="info-box">Zombies Shot: <span id="zombiesShot">0</span></div>
+            </div>
+        </div>
+        <div class="controls">
+            <button id="startButton">Start Game</button>
+            <button id="pauseButton">Pause Game</button>
+            <button id="resetButton">Reset Game</button>
+        </div>
+    </div>
+    <div class="message-box" id="messageBox">
+        <p id="messageText"></p>
+        <button id="messageBoxButton">OK</button>
+    </div>
+
+    <script>
+const keys = {};
+let lastShotTime = 0;
+const SHOOT_COOLDOWN = 600;
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const PLANT_WIDTH = 60;
+const PLANT_HEIGHT = 60;
+const PROJECTILE_RADIUS = 5;
+const PROJECTILE_SPEED = 7;
+const ZOMBIE_WIDTH = 50;
+const ZOMBIE_HEIGHT = 50;
+const ZOMBIE_INITIAL_SPEED = 0.5;
+const ZOMBIE_SPEED_INCREASE_PER_LEVEL = 0.1;
+const ZOMBIES_TO_LEVEL_UP = 25;
+const ZOMBIE_SPAWN_INITIAL_INTERVAL = 2000;
+const ZOMBIE_SPAWN_DECREASE_PER_LEVEL = 100;
+
+let plant, projectiles = [], zombies = [];
+let score = 0, level = 1, zombiesShotThisLevel = 0;
+let animationFrameId, zombieSpawnIntervalId;
+let isPaused = true, isGameOver = false;
+
+const scoreElement = document.getElementById('score');
+const levelElement = document.getElementById('level');
+const zombiesShotElement = document.getElementById('zombiesShot');
+const startButton = document.getElementById('startButton');
+const pauseButton = document.getElementById('pauseButton');
+const resetButton = document.getElementById('resetButton');
+const messageBox = document.getElementById('messageBox');
+const messageText = document.getElementById('messageText');
+const messageBoxButton = document.getElementById('messageBoxButton');
+
+// --- Load player image ---
+const playerImage = new Image();
+playerImage.src = "peashooter.png";
+
+// --- Load zombie images ---
+const zombieImages = [
+    "zombie.png",
+    "zombie2.png",
+    "zombie3.png",
+    "zombie4.png",
+    "zombie5.png",
+    "zombie6.png",
+    "zombie7.png",
+    "zombie8.png"
+
+].map(src => {
+    const img = new Image();
+    img.src = src;
+    return img;
+});
+
+// --- Plant blueprint ---
+const PlantBlueprint = {
+    x: 0, y: 0,
+    width: PLANT_WIDTH, height: PLANT_HEIGHT,
+    draw: function() {
+        if (playerImage.complete) {
+            ctx.drawImage(playerImage, this.x, this.y, this.width, this.height);
+        } else {
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    },
+    shoot: function() {
+        projectiles.push({
+            x: this.x + this.width / 2,
+            y: this.y,
+            radius: PROJECTILE_RADIUS,
+            color: '#FFD700',
+            speed: PROJECTILE_SPEED
+        });
+    }
+};
+
+// --- Spawn zombie acak ---
+function spawnZombie() {
+    if (isPaused || isGameOver) return;
+
+    const randomZombieImage = zombieImages[Math.floor(Math.random() * zombieImages.length)];
+    const scale = 0.8 + Math.random() * 0.5;
+    const randomWidth = ZOMBIE_WIDTH * scale;
+    const randomHeight = ZOMBIE_HEIGHT * scale;
+
+    zombies.push({
+        x: Math.random() * (canvas.width - randomWidth),
+        y: -randomHeight,
+        width: randomWidth,
+        height: randomHeight,
+        speed: ZOMBIE_INITIAL_SPEED + (level - 1) * ZOMBIE_SPEED_INCREASE_PER_LEVEL,
+        image: randomZombieImage
+    });
+}
+
+// --- Gambar zombie ---
+function drawZombies() {
+    zombies.forEach(z => {
+        if (z.image && z.image.complete) {
+            ctx.drawImage(z.image, z.x, z.y, z.width, z.height);
+        } else {
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(z.x, z.y, z.width, z.height);
+        }
+    });
+}
+
+function initGame() {
+    plant = Object.assign({}, PlantBlueprint);
+    plant.x = canvas.width / 2 - PLANT_WIDTH / 2;
+    plant.y = canvas.height - PLANT_HEIGHT - 10;
+    projectiles = [];
+    zombies = [];
+    score = 0;
+    level = 1;
+    zombiesShotThisLevel = 0;
+    isGameOver = false;
+    isPaused = true;
+    updateUI();
+    clearCanvas();
+    plant.draw();
+}
+
+function updateUI() {
+    scoreElement.textContent = score;
+    levelElement.textContent = level;
+    zombiesShotElement.textContent = zombiesShotThisLevel;
+}
+
+function updateGame() {
+    if (isPaused || isGameOver) return;
+
+    // --- kontrol player ---
+    const moveSpeed = 3;
+    if (keys['ArrowLeft']) plant.x = Math.max(0, plant.x - moveSpeed);
+    if (keys['ArrowRight']) plant.x = Math.min(canvas.width - plant.width, plant.x + moveSpeed);
+
+    if (keys[' ']) {
+        const now = Date.now();
+        if (now - lastShotTime > SHOOT_COOLDOWN) {
+            plant.shoot();
+            lastShotTime = now;
+        }
+    }
+
+    // Update peluru
+    projectiles = projectiles.filter(p => {
+        p.y -= p.speed;
+        return p.y > -p.radius;
+    });
+
+    // Update zombie
+    zombies.forEach(z => {
+        z.y += z.speed;
+        if (z.y + z.height > plant.y && checkCollision(plant, z)) {
+            gameOver();
+        }
+    });
+
+    zombies = zombies.filter(z => z.y < canvas.height);
+
+    // Cek tabrakan peluru
+    projectiles.forEach((p, i) => {
+        zombies.forEach((z, j) => {
+            if (p.x > z.x && p.x < z.x + z.width && p.y > z.y && p.y < z.y + z.height) {
+                score += 10;
+                zombiesShotThisLevel++;
+                projectiles.splice(i, 1);
+                zombies.splice(j, 1);
+                updateUI();
+                checkLevelUp();
+            }
+        });
+    });
+}
+
+function checkLevelUp() {
+    if (zombiesShotThisLevel >= ZOMBIES_TO_LEVEL_UP) {
+        level++;
+        zombiesShotThisLevel = 0;
+        updateUI();
+        showMessageBox(`Level Up! You are now Level ${level}!`, () => {
+            clearInterval(zombieSpawnIntervalId);
+            const newInterval = Math.max(500, ZOMBIE_SPAWN_INITIAL_INTERVAL - (level - 1) * ZOMBIE_SPAWN_DECREASE_PER_LEVEL);
+            zombieSpawnIntervalId = setInterval(spawnZombie, newInterval);
+        });
+    }
+}
+
+function drawGame() {
+    clearCanvas();
+    plant.draw();
+    drawProjectiles();
+    drawZombies();
+}
+
+function clearCanvas() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawProjectiles() {
+    projectiles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+    });
+}
+
+function checkCollision(r1, r2) {
+    return r1.x < r2.x + r2.width &&
+           r1.x + r1.width > r2.x &&
+           r1.y < r2.y + r2.height &&
+           r1.y + r1.height > r2.y;
+}
+
+function gameLoop() {
+    if (isGameOver || isPaused) return cancelAnimationFrame(animationFrameId);
+    updateGame();
+    drawGame();
+    animationFrameId = requestAnimationFrame(gameLoop);
+}
+
+function showMessageBox(msg, cb = () => {}) {
+    messageText.textContent = msg;
+    messageBox.style.display = 'block';
+    messageBoxButton.onclick = () => {
+        messageBox.style.display = 'none';
+        cb();
+    };
+}
+
+function gameOver() {
+    isGameOver = true;
+    isPaused = true;
+    cancelAnimationFrame(animationFrameId);
+    clearInterval(zombieSpawnIntervalId);
+    showMessageBox(`Game Over! Your score: ${score}`, resetGame);
+}
+
+function startGame() {
+    if (isGameOver) resetGame();
+    if (isPaused) {
+        isPaused = false;
+        gameLoop();
+        if (!zombieSpawnIntervalId)
+            zombieSpawnIntervalId = setInterval(spawnZombie, ZOMBIE_SPAWN_INITIAL_INTERVAL);
+        startButton.textContent = 'Resume Game';
+    }
+}
+
+function togglePause() {
+    if (isGameOver) return;
+    isPaused = !isPaused;
+    if (!isPaused) {
+        gameLoop();
+        if (!zombieSpawnIntervalId)
+            zombieSpawnIntervalId = setInterval(spawnZombie, 1000);
+        pauseButton.textContent = 'Pause Game';
+    } else {
+        cancelAnimationFrame(animationFrameId);
+        clearInterval(zombieSpawnIntervalId);
+        zombieSpawnIntervalId = null;
+        pauseButton.textContent = 'Resume Game';
+    }
+}
+
+function resetGame() {
+    cancelAnimationFrame(animationFrameId);
+    clearInterval(zombieSpawnIntervalId);
+    zombieSpawnIntervalId = null;
+    initGame();
+    startButton.textContent = 'Start Game';
+    pauseButton.textContent = 'Pause Game';
+}
+
+document.addEventListener('keydown', e => keys[e.key] = true);
+document.addEventListener('keyup', e => keys[e.key] = false);
+
+startButton.addEventListener('click', startGame);
+pauseButton.addEventListener('click', togglePause);
+resetButton.addEventListener('click', resetGame);
+window.onload = initGame;
+</script>
+</body>
+</html>
